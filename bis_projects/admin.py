@@ -1,6 +1,6 @@
 # Register your models here.
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from .models import ClientInstitution, Client, Project, Sample, SequencingRun
 from rangefilter.filters import DateRangeFilter
 from import_export.admin import ImportExportModelAdmin
@@ -8,14 +8,16 @@ from .resources import ProjectResource, SampleResource
 from .forms import SampleAdminForm, BulkStatusForm, BulkProjectForm
 from django.shortcuts import render
 from django.http import HttpResponseRedirect
-from django.contrib import messages
 import logging
+
 
 logger = logging.getLogger(__name__)
 
 def bulk_update_project(modeladmin, request, queryset):
+
     if 'apply' in request.POST:
         form = BulkProjectForm(request.POST)
+
         if form.is_valid():
             new_project = form.cleaned_data['project']
             for sample in queryset:
@@ -35,15 +37,81 @@ def bulk_update_project(modeladmin, request, queryset):
 bulk_update_project.short_description = "Bulk update project for selected samples"
 
 def bulk_update_status(modeladmin, request, queryset):
+    logger.info("Bulk update status POST data: %s", request.POST)
+
+    if request.method == "POST":  # ✅ Check if form was submitted
+        print("🔍 Full request.POST data:", request.POST)
+
+        form = BulkStatusForm(request.POST)
+        print("📌 Form received:", form)
+
+        if form.is_valid():
+            new_status = form.cleaned_data['sample_status']  # ✅ Ensure correct field name
+            print("✅ New status:", new_status)
+
+            # Update the status for all selected samples
+            updated_count = queryset.update(sample_status=new_status)  # ✅ Make sure `sample_status` is correct
+            modeladmin.message_user(
+                request,
+                f"{updated_count} samples updated to status '{new_status}'.",
+                messages.SUCCESS
+            )
+            return HttpResponseRedirect(request.get_full_path())
+
+    else:
+        form = BulkStatusForm()
+
+    return render(request, 'admin/bulk_status_update.html', {
+        'samples': queryset,
+        'form': form,
+        'title': "Bulk Update Status for Selected Samples",
+    })
+"""
+
+def bulk_update_status(modeladmin, request, queryset):
+
+    if "bulk_update_status" in request.POST:  # Form submission check
+        form = BulkStatusForm(request.POST)
+        if "sample_status" not in request.POST:
+            print("❌ ERROR: `sample_status` is missing from request.POST!")
+
+        if form.is_valid():
+            new_status = form.cleaned_data["sample_status"]
+            selected_sample_ids = request.POST.getlist("_selected_action")
+            updated_count = Sample.objects.filter(id__in=selected_sample_ids).update(sample_status=new_status)
+            modeladmin.message_user(
+                request, f"{updated_count} samples updated to status '{new_status}'.", messages.SUCCESS
+            )
+
+            return HttpResponseRedirect(request.get_full_path())
+
+        else:
+            print("❌ DEBUG: Form errors:", form.errors)
+
+    else:
+        form = BulkStatusForm()
+
+    return render(request, "admin/bulk_status_update.html", {
+        "samples": queryset,
+        "form": form,
+        "title": "Bulk Update Status for Selected Samples",
+    })
+
+
+def bulk_update_status(modeladmin, request, queryset):
     print("🔍 DEBUG: Full request.POST:", request.POST)
 
-    bulk_update_value = request.POST.get("bulk_update_status")
     selected_sample_ids = request.POST.getlist("_selected_action")
+    sample_status_value = request.POST.get("sample_status")
 
-    if "sample_status" not in request.POST:
+    print("🔍 DEBUG: Selected Sample IDs:", selected_sample_ids)
+    print("🔍 DEBUG: Received Status Value:", sample_status_value)
+
+    if not sample_status_value:
         print("❌ ERROR: 'sample_status' field is missing from POST request!")
 
     form = BulkStatusForm(request.POST)
+    print("🔍 DEBUG: Form choices:", form.fields["sample_status"].choices)
 
     if form.is_valid():
         new_status = form.cleaned_data["sample_status"]
@@ -67,7 +135,7 @@ def bulk_update_status(modeladmin, request, queryset):
         'title': "Bulk Update Status for Selected Samples",
     })
 
-"""
+
 def bulk_update_status(modeladmin, request, queryset):
     print("🔍 DEBUG: Full request.POST:", request.POST)  # Ensure "status" exists in POST
 
@@ -209,7 +277,7 @@ class SampleAdmin(ImportExportModelAdmin):
             'fields': (('library_quant', 'library_kit'),)
         }),
         ('Sequencing Details', {
-            'fields': (('targeted_depth', 'status'),)
+            'fields': (('targeted_depth', 'sample_status'),)
         }),
     )
     readonly_fields = ('project_ids',)

@@ -7,18 +7,16 @@ class BulkStatusForm(forms.Form):
     # This hidden field will store the IDs of the selected objects.
     _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
     # A choice field for the new status.
-    sample_status = forms.ChoiceField(choices=STATUS_CHOICES, label="New Status", help_text="Select the new status for the selected samples.",initial="LAB", widget=forms.Select(attrs={'class': 'vSelect', 'data-default': 'LAB'})
-    )
+    sample_status = forms.ChoiceField(choices=STATUS_CHOICES, label="New Status",
+                                      help_text="Select the new status for the selected samples.",
+                                      required=True,)
+
 
     def __init__(self, *args, **kwargs):
-        # If the form is unbound or no 'status' value is provided in initial data,
-        # force the initial value to 'LAB'.
-        if 'data' not in kwargs or not kwargs['data']:
-            initial = kwargs.get('initial', {})
-            if 'status' not in initial:
-                initial['status'] = 'LAB'
-            kwargs['initial'] = initial
         super().__init__(*args, **kwargs)
+        # ✅ Set default value for sample_status properly
+        if not self.is_bound:
+            self.fields["sample_status"].initial = "LAB"
 
 class BulkProjectForm(forms.Form):
     _selected_action = forms.CharField(widget=forms.MultipleHiddenInput)
