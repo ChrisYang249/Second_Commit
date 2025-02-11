@@ -14,3 +14,10 @@ def project_detail(request, pk):
         'samples': samples,
     }
     return render(request, 'projects/project_detail.html', context)
+
+from django.http import JsonResponse
+
+def csrf_failure_debug(request, reason=""):
+    print("🔴 CSRF ERROR: ", reason)
+    print("🔴 Full request.POST:", request.POST)
+    return JsonResponse({'error': 'CSRF Failed', 'reason': reason}, status=403)

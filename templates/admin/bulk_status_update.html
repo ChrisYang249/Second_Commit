@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+  <h1>{{ title }}</h1>
+  <form method="post" id="bulk-status-form">
+      {% csrf_token %}
+
+      <label for="id_status">New Status:</label>
+      <select name="status" id="id_status" required>
+        {% for value, label in form.fields.status.choices %}
+            <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+
+      <!-- Ensure selected sample IDs are submitted -->
+      {% for sample in samples %}
+        <input type="hidden" name="_selected_action" value="{{ sample.id }}">
+      {% endfor %}
+
+      <input type="hidden" name="bulk_update_status" value="1">
+
+      <br>
+      <input type="submit" value="{% trans 'Apply' %}">
+  </form>
+{% endblock %}
