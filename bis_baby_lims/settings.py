@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'bis_projects',
     'rangefilter',
-    'import_export'
+    'import_export',
 ]
 
 MIDDLEWARE = [

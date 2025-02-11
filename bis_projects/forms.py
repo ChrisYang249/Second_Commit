@@ -30,12 +30,7 @@ class SampleAdminForm(forms.ModelForm):
     class Meta:
         model = Sample
         fields = '__all__'
-    """
-    projects = forms.ModelMultipleChoiceField(
-        queryset=Project.objects.all(),
-        widget=FilteredSelectMultiple("Projects", is_stacked=False)
-    )
-    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Override the label_from_instance to return just the project_id.
@@ -54,3 +49,50 @@ class SampleAdminForm(forms.ModelForm):
             # For many-to-many fields, save them after saving the instance
             self.save_m2m()
         return instance
+"""
+
+class ProjectAdminForm(forms.ModelForm):
+    # This field is not on the Project model; it's a proxy for client.institution.
+    client_institution = forms.CharField(
+        label="Client Institution",
+        required=False,
+        help_text="Enter the client institution name."
+    )
+
+    class Meta:
+        model = Project
+        # List all the fields you want on the form.
+        # Notice we include 'client_institution' even though it’s not a model field.
+        fields = [
+            'project_id',
+            'client',
+            'due_date',
+            'service_type',
+            'delivery_method',
+            'deliverables',
+            'samples_count',
+            'status',
+            'analyst',
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # If an instance exists and has a related client, pre-populate our field.
+        if self.instance and self.instance.pk and self.instance.client:
+            # Use .get() to avoid KeyError.
+            if 'client_institution' in self.fields:
+                self.fields['client_institution'].initial = self.instance.client.institution
+
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Update the related client's institution field.
+        if instance.client:
+            new_institution = self.cleaned_data.get('client_institution', '')
+            if instance.client.institution != new_institution:
+                instance.client.institution = new_institution
+                instance.client.save()
+        if commit:
+            instance.save()
+        return instance
+"""
