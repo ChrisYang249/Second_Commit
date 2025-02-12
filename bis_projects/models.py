@@ -1,11 +1,10 @@
 from django.db import models
-
-# Create your models here.
-
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
-
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 """
 
 # Optionally, you can separate client and institution information
@@ -26,6 +25,33 @@ class Client(models.Model):
     def __str__(self):
         return self.name
 """
+
+
+class LogEntry(models.Model):
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        related_name="bisprojects_log_entries"
+    )
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    author = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="bisprojects_log_entries",
+        null=True,  # Allow null values
+        blank=True  # Allow the field to be blank in forms
+    )
+    comment = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f"{self.created_at:%Y-%m-%d %H:%M} by {self.author}"
+
 class Client(models.Model):
     name = models.CharField(max_length=255)
     institution = models.CharField(
@@ -81,7 +107,7 @@ class Project(models.Model):
     analyst = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='projects')
 
     def __str__(self):
-        return f"Project for {self.client.name} due {self.due_date}"
+        return f"Project for {self.client.institution} due {self.due_date}"
 
 STATUS_CHOICES = [
     ('LAB', 'LAB'),
@@ -94,7 +120,7 @@ STATUS_CHOICES = [
 class Sample(models.Model):
     projects = models.ManyToManyField(Project, related_name='samples')
     client = models.ForeignKey(Client, on_delete=models.SET_NULL, null=True, blank=True, related_name='samples')
-    barcode = models.CharField(max_length=100, unique=True)
+    barcode = models.CharField(max_length=20, unique=True)
     client_sample_name = models.CharField(max_length=100)
     sample_type = models.CharField(max_length=100)
     
@@ -114,6 +140,8 @@ class Sample(models.Model):
         choices=STATUS_CHOICES,
         default='LAB'
     )
+    #date added upon sample registration
+    date_added = models.DateField(auto_now_add=True, null=True)
     def __str__(self):
         return f"Sample {self.barcode} ({self.client_sample_name})"
 

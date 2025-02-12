@@ -1,0 +1,23 @@
+{% extends "admin/change_list.html" %}
+{% load admin_list i18n %}
+
+{% block content %}
+  {% if custom_header %}
+    <h1>{{ custom_header }}</h1>
+  {% endif %}
+
+  <div class="per-page-selector" style="margin-bottom: 10px;">
+    <label for="page_size">{% translate "Items per page:" %}</label>
+    <select id="page_size" name="page_size"
+            onchange="var params = new URLSearchParams(window.location.search); params.set('page_size', this.value); params.delete('e'); window.location.search = params.toString();">
+      <option value="25" {% if request.GET.page_size|stringformat:"s" == "25" %}selected{% endif %}>25</option>
+      <option value="50" {% if request.GET.page_size|stringformat:"s" == "50" %}selected{% endif %}>50</option>
+      <option value="75" {% if request.GET.page_size|stringformat:"s" == "75" %}selected{% endif %}>75</option>
+      <option value="100" {% if request.GET.page_size|stringformat:"s" == "100" %}selected{% endif %}>100</option>
+      <option value="250" {% if request.GET.page_size|stringformat:"s" == "250" %}selected{% endif %}>250</option>
+      <option value="500" {% if request.GET.page_size|stringformat:"s" == "500" %}selected{% endif %}>500</option>
+    </select>
+  </div>
+
+  {{ block.super }}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+  <h1>{% trans "Import Preview" %}</h1>
+  <h1 style="color:red;">IMPORT CONFIRMATION PAGE</h1>
+  {% if sample_count %}
+      <p>{{ sample_count }} samples are being imported.</p>
+  {% else %}
+      <p>No dataset found.</p>
+  {% endif %}
+  {# Include the rest of your preview content here #}
+  {{ block.super }}
+{% endblock %}

@@ -31,10 +31,12 @@ class SampleAdminForm(forms.ModelForm):
         model = Sample
         fields = '__all__'
 
+    """    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Override the label_from_instance to return just the project_id.
         self.fields["projects"].label_from_instance = lambda obj: obj.project_id
+    """
     
     def save(self, commit=True):
         instance = super().save(commit=False)
@@ -48,6 +50,35 @@ class SampleAdminForm(forms.ModelForm):
             instance.save()
             # For many-to-many fields, save them after saving the instance
             self.save_m2m()
+        return instance
+
+class ProjectSampleInlineForm(forms.ModelForm):
+    # Add a field for sample_status that isn’t part of the through model.
+    sample_status = forms.CharField(label="Status", required=False)
+
+    class Meta:
+        # The model here is the through model of Project.samples.
+        model = Sample.projects.through  # or Project.samples.through; they are equivalent.
+        # Use all fields from the through model (typically project and sample)
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Populate the sample_status field from the related Sample if it exists.
+        if self.instance and self.instance.pk and self.instance.sample:
+            self.fields['sample_status'].initial = self.instance.sample.sample_status
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # Get the cleaned data for sample_status
+        new_status = self.cleaned_data.get('sample_status', None)
+        # If the related Sample exists and its status differs, update it.
+        if instance.sample and new_status is not None:
+            if instance.sample.sample_status != new_status:
+                instance.sample.sample_status = new_status
+                instance.sample.save()
+        if commit:
+            instance.save()
         return instance
 """
 
