@@ -1,0 +1,47 @@
+{% extends "admin/change_list.html" %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <style>
+    /* For the first column, push the sorting icon a bit to the right */
+    #result_list thead th:first-child.sorting:after,
+    #result_list thead th:first-child.sorting_asc:after,
+    #result_list thead th:first-child.sorting_desc:after {
+    right: 200px !important;  /* adjust this value until it no longer overlaps */
+    }
+  </style>
+  <script>
+    django.jQuery(document).ready(function() {
+        console.log("Initializing DataTables on #result_list");
+        django.jQuery('#result_list').DataTable({
+            // You can configure options here. For instance:
+            // "paging": false, // if you want to disable DataTables pagination
+          "lengthMenu": [[10, 25, 50, 100, 500, -1], [10, 25, 50, 100, 500, "All"]],
+          "columnDefs": [{ "orderable": false, "targets": 0 }],
+          "pageLength": 100,     // Set the default display length to 100
+          "stateSave": true,     // Persist table state (including page length, sorting, etc.)
+        });
+      /*        // Clone the header row to create a row for filters
+      django.jQuery('#result_list thead tr').clone(true).appendTo( '#result_list thead' );
+
+      // For each column header in the cloned row
+      django.jQuery('#result_list thead tr:eq(1) th').each( function (i) {
+          // Skip the checkbox column (assumed index 0)
+          if (i === 0) {
+              django.jQuery(this).html('');
+          } else {
+              var title = django.jQuery(this).text();
+              django.jQuery(this).html( '<input type="text" placeholder="Search '+title+'" />' );
+              django.jQuery('input', this).on('keyup change', function () {
+                  if ( table.column(i).search() !== this.value ) {
+                      table
+                        .column(i)
+                        .search(this.value)
+                        .draw();
+                  }
+              });
+          }
+      });*/
+    });
+  </script>
+{% endblock %}

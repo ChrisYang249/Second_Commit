@@ -14,9 +14,15 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path
+from dal import autocomplete
+from bis_projects.models import Project
+from bis_projects.views import ProjectAutocomplete, project_datatable
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('project-autocomplete/', ProjectAutocomplete.as_view(), name='project-autocomplete'),
+    path('projects-datatables/', project_datatable, name='projects_datatable'),
 ]

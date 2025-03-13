@@ -2,10 +2,10 @@
 
 from django.contrib import admin, messages
 from .models import Client, Project, Sample, SequencingRun, LogEntry
-from rangefilter.filters import DateRangeFilter
+from rangefilter.filter import DateRangeFilter
 from import_export.admin import ImportExportModelAdmin
 from .resources import ProjectResource, SampleResource, SeqRunResource
-from .forms import SampleAdminForm, BulkStatusForm, BulkProjectForm, ProjectSampleInlineForm
+from .forms import SampleAdminForm, BulkStatusForm, BulkProjectForm, ProjectSampleInlineForm, SampleAdminForm, SingleProjectChoiceField
 from django.shortcuts import render
 from django.http import HttpResponseRedirect,HttpResponse
 import logging
@@ -16,7 +16,6 @@ from django.db import models
 from django.forms import Textarea
 
 logger = logging.getLogger(__name__)
-
 
 class LogEntryInline(GenericTabularInline):
     model = LogEntry
@@ -29,7 +28,7 @@ class LogEntryInline(GenericTabularInline):
     readonly_fields = ('display_author', 'created_at',)
     formfield_overrides = {
         models.TextField: {
-            'widget': Textarea(attrs={'rows': 3, 'cols': 40})
+            'widget': Textarea(attrs={'rows': 3, 'cols': 80})
         },
     }
 
@@ -98,17 +97,16 @@ def bulk_update_project(modeladmin, request, queryset):
 bulk_update_project.short_description = "Bulk update project for selected samples"
 
 def bulk_update_status(modeladmin, request, queryset):
-    logger.info("Bulk update status POST data: %s", request.POST)
+    #logger.info("Bulk update status POST data: %s", request.POST)
 
     if request.method == "POST":  # ✅ Check if form was submitted
-        print("🔍 Full request.POST data:", request.POST)
-
+        #print("🔍 Full request.POST data:", request.POST)
         form = BulkStatusForm(request.POST)
-        print("📌 Form received:", form)
+        #print("📌 Form received:", form)
 
         if form.is_valid():
             new_status = form.cleaned_data['sample_status']  # ✅ Ensure correct field name
-            print("✅ New status:", new_status)
+            #print("✅ New status:", new_status)
 
             # Update the status for all selected samples
             updated_count = queryset.update(sample_status=new_status)  # ✅ Make sure `sample_status` is correct
@@ -134,18 +132,31 @@ class ProjectAdmin(ImportExportModelAdmin):
     #CSV Importer
     resource_class = ProjectResource
 
+    change_list_template = "admin/bis_projects/project/change_list.html"
+    class Media:
+        css = {
+            'all': (
+                # DataTables CSS from CDN
+                'https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css',
+            )
+        }
+        js = (
+            # DataTables JS from CDN; note that admin already loads jQuery
+            'https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js',
+        )
+
     #change form edit
     fieldsets = (
         (None, {
             'fields': (('project_id', 'client'), ('due_date','status'))
         }),
         ('Delivery Details', {
-            'fields': ('service_type','delivery_method','samples_count', 'analyst' ),
+            'fields': (('service_type','delivery_method'),('samples_count', 'analyst' )),
         }),
         ('Samples', {
             'fields' : ('view_samples_link',)
-        }),
-        ('Log', {'fields':()})
+        })
+        #('Log', {'fields':()})
     )
     readonly_fields = ('view_samples_link',)
 
@@ -157,7 +168,36 @@ class ProjectAdmin(ImportExportModelAdmin):
     list_editable = ('status',)
 # Optionally, add search fields, filters, etc.
     search_fields = ('project_id', 'client__name', 'client__institution', 'service_type') 
-    list_filter = ('status', ('due_date', DateRangeFilter))
+    list_filter = ('status', ("due_date", DateRangeFilter),)
+
+    def get_filters_params(self, params=None):
+        """
+        Ensure any filter parameters that are lists are converted to single strings.
+        If a list contains an empty string, remove it to prevent errors.
+        """
+        lookup_params = super().get_filters_params(params)
+
+        print("DEBUG: Original lookup_params =", lookup_params)  # Debugging
+
+        cleaned_params = {}
+        for key, value in lookup_params.items():
+            print(f"DEBUG: Key = {key}, Value = {value}, Type = {type(value)}")  # Debug each filter value
+
+            if isinstance(value, list):
+                # Remove empty values and only take the first non-empty value
+                non_empty_values = [v for v in value if v.strip()]  # Remove empty strings
+                cleaned_params[key] = non_empty_values[0] if non_empty_values else None
+            else:
+                cleaned_params[key] = value
+
+        print("DEBUG: Processed lookup_params =", cleaned_params)  # Debugging
+        return cleaned_params
+
+    def changelist_view(self, request, extra_context=None):
+        results=request.GET
+        for key, value in results.items():
+            print(type(key),type(value))# Log request parameters
+        return super().changelist_view(request, extra_context=extra_context)
 
     def client_institution(self, obj):
         # Assuming the Client model has a field called "institution"
@@ -171,45 +211,81 @@ class ProjectAdmin(ImportExportModelAdmin):
 
     #Make View Samples Link in projects page
     def view_samples_link(self, obj):
-        # Replace 'yourapp' with your actual app label.
         url = reverse("admin:bis_projects_sample_changelist") + f"?projects__id__exact={obj.id}"
         return format_html('<a href="{}">View Samples</a>', url)
 
     view_samples_link.short_description = "Samples"
-    # Then include this method in your list_display or as a read-only field in your change form.
-    list_display = ('project_id', 'client', 'due_date', 'service_type', 'status', 'view_samples_link')
+
+    #sets the maximum length of sample names displayed
+    def truncated_project_id(self, obj):
+        name = obj.project_id or ""
+        max_length = 25
+        if len(name) > max_length:
+            return name[:max_length] + "..."
+        return name
+    truncated_project_id.short_description = "CP"
+
+    def truncated_client(self, obj):
+        name = ""
+        # Check if a client is assigned and if it has an institution with a name.
+        if obj.client and getattr(obj.client, 'institution', None):
+            name = obj.client.institution or ""
+        max_length = 19
+        if len(name) > max_length:
+            return name[:max_length] + "..."
+        return name
+
+    truncated_client.short_description = "Client"
+
+    list_display = ('truncated_project_id', 'truncated_client', 'due_date', 'service_type', 'status', 'view_samples_link')
+
+
+
+class SequencingRunInline(admin.TabularInline):
+    model = SequencingRun.samples.through  # The autogenerated through model
+    extra = 1
+    verbose_name = "Sequencing Run"
+    verbose_name_plural = "Sequencing Runs"
 
 class SampleAdmin(ImportExportModelAdmin):
     #CSV Importer
-    confirm_import = True
+    #confirm_import = True
     resource_class = SampleResource
-    change_list_template = "admin/bis_projects/sample/change_list.html"
     form = SampleAdminForm
-    list_per_page = 25
+    change_list_template = 'admin/bis_projects/sample/change_list.html'
+    change_form_template = 'admin/bis_projects/sample/change_form.html'
+    list_per_page = 75
+    #raw_id_fields = ['projects']
     #Sample page change form rearrange
     fieldsets = (
         (None, {
             # This tuple puts these two fields on the same line$
             # Include the client field here along with projects and barcode.
-            'fields': (('client', 'project_ids', 'barcode'), ('client_sample_name', 'sample_type'))
+            'fields': (('project', 'client', 'barcode'),
+                       ('client_sample_name'))
         }),
-        ('Extraction Details', {
-            'fields': (('extraction_quant', 'extraction_kit'),)
+        ('Sample Type and Lab Methods', {
+            'fields': (('sample_type'),('extraction_kit','library_kit'),)
         }),
-        ('Library Details', {
-            'fields': (('library_quant', 'library_kit'),)
+        ('Quantitation', {
+            'fields': (('extraction_quant','library_quant'),)
         }),
         ('Sequencing Details', {
             'fields': (('targeted_depth', 'sample_status'),)
         }),
     )
-    readonly_fields = ('project_ids',)
-    list_display = ('barcode', 'truncated_sample_name','project_ids','client_institution', 'sample_type', 'sample_status','sequencing_run_info')
+    #inlines = [SequencingRunInline]
+    #readonly_fields = ('project_ids',)
+    list_display = ('barcode', 'truncated_sample_name','project_ids',
+                    'client_institution', 'sample_type', 'sample_status',
+                    'sequencing_run_info')
     #list_editable = ('status',)
     list_editable = ()
-    search_fields = ('barcode', 'client_sample_name','projects__project_id')
-    list_filter = ('sample_status', 'projects')
-    inlines = [LogEntryInline]
+    search_fields = ('barcode', 'client_sample_name','projects__project_id', 'client__name', 'client')
+    autocomplete_fields = ['client']
+    list_filter = ('sample_status', ('projects',admin.RelatedOnlyFieldListFilter))
+    inlines = [SequencingRunInline,LogEntryInline]
+
 
     #change number of pages on sample list view
     def get_list_per_page(self, request):
@@ -302,6 +378,7 @@ class SampleAdmin(ImportExportModelAdmin):
             extra_context['custom_header'] = header
         return super().changelist_view(request, extra_context=extra_context)
 
+    """    
     def get_import_context_data(self, **kwargs):
         context = super().get_import_context_data(**kwargs)
         dataset = context.get('dataset')
@@ -311,7 +388,7 @@ class SampleAdmin(ImportExportModelAdmin):
         else:
             print("dataset is None")
         print("DEBUG: (Import):", context)
-        return context
+        return context"""
 
     def get_confirm_context_data(self, **kwargs):
         print(">>> ENTERING get_confirm_context_data()")
@@ -324,6 +401,7 @@ class SampleAdmin(ImportExportModelAdmin):
         print("DEBUG (confirm):", context)
         return context
 
+    #sets the maximum length of sample names displayed
     def truncated_sample_name(self, obj):
         """
         Returns a truncated version of the sample name (client_sample_name),
@@ -345,9 +423,14 @@ class SeqRunAdmin(ImportExportModelAdmin):
     resource_class = SeqRunResource
     list_display = ('run_name', 'instrument')
 
+
+class ClientAdmin(admin.ModelAdmin):
+    #search_fields = ['name', 'institution']
+    search_fields = ['institution']
+
 admin.site.register(Project, ProjectAdmin)
 #admin.site.register(ClientInstitution)
-admin.site.register(Client)
+admin.site.register(Client, ClientAdmin)
 admin.site.register(Sample, SampleAdmin)
 admin.site.register(SequencingRun, SeqRunAdmin)
 
