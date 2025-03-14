@@ -1,5 +1,5 @@
 from django import forms
-from .models import Sample, Project, STATUS_CHOICES
+from .models import Sample, Project, STATUS_CHOICES, SequencingRun
 from django.contrib.admin.widgets import FilteredSelectMultiple #, AutocompleteSelect
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.forms.fields import DateField
@@ -160,7 +160,7 @@ class SampleAdminForm(forms.ModelForm):
     """
 
 class ProjectSampleInlineForm(forms.ModelForm):
-    # Add a field for sample_status that isn’t part of the through model.
+    # Add a field for sample_status that isn't part of the through model.
     sample_status = forms.CharField(label="Status", required=False)
 
     class Meta:
@@ -200,7 +200,7 @@ class ProjectAdminForm(forms.ModelForm):
     class Meta:
         model = Project
         # List all the fields you want on the form.
-        # Notice we include 'client_institution' even though it’s not a model field.
+        # Notice we include 'client_institution' even though it's not a model field.
         fields = [
             'project_id',
             'client',
@@ -234,3 +234,20 @@ class ProjectAdminForm(forms.ModelForm):
             instance.save()
         return instance
 """
+
+class SequencingRunForm(forms.ModelForm):
+    class Meta:
+        model = SequencingRun
+        fields = '__all__'
+        widgets = {
+            'samples': forms.SelectMultiple(attrs={
+                'class': 'samples-select',
+                'style': 'width: 100%; min-height: 200px;'
+            })
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields['samples'].queryset = Sample.objects.all().order_by('barcode')
+            self.fields['samples'].label_from_instance = lambda obj: f"{obj.barcode} - {obj.client_sample_name} ({obj.sample_status})"

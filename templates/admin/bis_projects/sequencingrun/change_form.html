@@ -1,0 +1,95 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .samples-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+    .samples-table th, .samples-table td {
+        padding: 8px;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+    .samples-table th {
+        background-color: #f5f5f5;
+    }
+    .samples-table tr:hover {
+        background-color: #f9f9f9;
+    }
+    .remove-sample {
+        color: #dc3545;
+        cursor: pointer;
+    }
+    .add-sample-btn {
+        margin-top: 10px;
+        padding: 5px 10px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block field_sets %}
+{{ block.super }}
+<div class="samples-section">
+    <h2>Selected Samples</h2>
+    <table class="samples-table">
+        <thead>
+            <tr>
+                <th>Barcode</th>
+                <th>Sample Name</th>
+                <th>Project</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sample in original.samples.all %}
+            <tr>
+                <td>{{ sample.barcode }}</td>
+                <td>{{ sample.client_sample_name }}</td>
+                <td>{{ sample.projects.all|join:", " }}</td>
+                <td>{{ sample.sample_status }}</td>
+                <td>
+                    <span class="remove-sample" data-sample-id="{{ sample.id }}">Remove</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button type="button" class="add-sample-btn" onclick="openSampleSelector()">Add Samples</button>
+</div>
+{% endblock %}
+
+{% block admin_change_form_document_ready %}
+{{ block.super }}
+<script>
+    function openSampleSelector() {
+        // Open the sample selection popup
+        window.open('{% url "admin:bis_projects_sample_changelist" %}?_popup=1', 
+                   'sampleSelector',
+                   'width=800,height=600,resizable=yes,scrollbars=yes');
+    }
+
+    django.jQuery(document).ready(function($) {
+        // Handle sample removal
+        $('.remove-sample').click(function() {
+            const sampleId = $(this).data('sample-id');
+            if (confirm('Are you sure you want to remove this sample from the run?')) {
+                // Remove the sample from the hidden input and refresh the table
+                const samplesInput = $('#id_samples');
+                const currentSamples = samplesInput.val().split(',').filter(id => id !== sampleId.toString());
+                samplesInput.val(currentSamples.join(','));
+                $(this).closest('tr').remove();
+            }
+        });
+    });
+</script>
+{% endblock %} 

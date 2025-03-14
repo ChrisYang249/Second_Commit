@@ -5,7 +5,7 @@ from .models import Client, Project, Sample, SequencingRun, LogEntry
 from rangefilter.filter import DateRangeFilter
 from import_export.admin import ImportExportModelAdmin
 from .resources import ProjectResource, SampleResource, SeqRunResource
-from .forms import SampleAdminForm, BulkStatusForm, BulkProjectForm, ProjectSampleInlineForm, SampleAdminForm, SingleProjectChoiceField
+from .forms import SampleAdminForm, BulkStatusForm, BulkProjectForm, ProjectSampleInlineForm, SequencingRunForm
 from django.shortcuts import render
 from django.http import HttpResponseRedirect,HttpResponse
 import logging
@@ -49,7 +49,7 @@ class LogEntryInline(GenericTabularInline):
         class RequestFormSet(FormSet):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
-                # For each form, if it’s a new instance without an author, set the initial value.
+                # For each form, if it's a new instance without an author, set the initial value.
                 for form in self.forms:
                     if not form.instance.pk and not getattr(form.instance, 'author', None):
                         form.initial['author'] = request.user.pk
@@ -420,9 +420,34 @@ class SampleInline(admin.TabularInline):
     extra = 1
 """
 class SeqRunAdmin(ImportExportModelAdmin):
+    form = SequencingRunForm
     resource_class = SeqRunResource
-    list_display = ('run_name', 'instrument')
+    list_display = ('run_name', 'instrument', 'qc_status', 'status', 'sample_count')
+    list_filter = ('instrument', 'qc_status', 'status')
+    search_fields = ('run_name', 'external_run_id')
+    filter_horizontal = ('samples',)
+    change_form_template = 'admin/bis_projects/sequencingrun/change_form.html'
+    
+    def sample_count(self, obj):
+        return obj.samples.count()
+    sample_count.short_description = 'Number of Samples'
 
+    class Media:
+        css = {
+            'all': ('admin/css/widgets.css',)
+        }
+        js = ('admin/js/jquery.init.js', 'admin/js/core.js',)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        form.base_fields['samples'].widget.can_add_related = True
+        form.base_fields['samples'].widget.can_change_related = True
+        return form
+
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['show_save_and_continue'] = True
+        return super().change_view(request, object_id, form_url, extra_context)
 
 class ClientAdmin(admin.ModelAdmin):
     #search_fields = ['name', 'institution']
