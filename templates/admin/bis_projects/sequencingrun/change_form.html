@@ -33,6 +33,9 @@
         border-radius: 3px;
         cursor: pointer;
     }
+    #selected-samples-table tbody tr:nth-child(even) {
+        background-color: rgba(0,0,0,0.05);
+    }
 </style>
 {% endblock %}
 
@@ -40,7 +43,7 @@
 {{ block.super }}
 <div class="samples-section">
     <h2>Selected Samples</h2>
-    <table class="samples-table">
+    <table id="selected-samples-table" class="samples-table">
         <thead>
             <tr>
                 <th>Barcode</th>
@@ -52,13 +55,13 @@
         </thead>
         <tbody>
             {% for sample in original.samples.all %}
-            <tr>
+            <tr data-sample-id="{{ sample.id }}">
                 <td>{{ sample.barcode }}</td>
                 <td>{{ sample.client_sample_name }}</td>
                 <td>{{ sample.projects.all|join:", " }}</td>
                 <td>{{ sample.sample_status }}</td>
                 <td>
-                    <span class="remove-sample" data-sample-id="{{ sample.id }}">Remove</span>
+                    <span class="remove-sample" onclick="removeSample(this)">Remove</span>
                 </td>
             </tr>
             {% endfor %}
@@ -72,24 +75,56 @@
 {{ block.super }}
 <script>
     function openSampleSelector() {
-        // Open the sample selection popup
         window.open('{% url "admin:bis_projects_sample_changelist" %}?_popup=1', 
                    'sampleSelector',
-                   'width=800,height=600,resizable=yes,scrollbars=yes');
+                   'width=1000,height=800,resizable=yes,scrollbars=yes');
     }
 
-    django.jQuery(document).ready(function($) {
-        // Handle sample removal
-        $('.remove-sample').click(function() {
-            const sampleId = $(this).data('sample-id');
-            if (confirm('Are you sure you want to remove this sample from the run?')) {
-                // Remove the sample from the hidden input and refresh the table
-                const samplesInput = $('#id_samples');
-                const currentSamples = samplesInput.val().split(',').filter(id => id !== sampleId.toString());
-                samplesInput.val(currentSamples.join(','));
-                $(this).closest('tr').remove();
+    function handleSelectedSamples(samples) {
+        const table = document.getElementById('selected-samples-table').getElementsByTagName('tbody')[0];
+        const samplesInput = document.getElementById('id_samples');
+        let currentSamples = samplesInput.value ? samplesInput.value.split(',') : [];
+
+        samples.forEach(function(sample) {
+            // Add row to table
+            const row = table.insertRow();
+            row.dataset.sampleId = sample.barcode;
+            
+            row.insertCell(0).textContent = sample.barcode;
+            row.insertCell(1).textContent = sample.name;
+            row.insertCell(2).textContent = sample.project;
+            row.insertCell(3).textContent = sample.status;
+            
+            const actionCell = row.insertCell(4);
+            actionCell.innerHTML = '<span class="remove-sample" onclick="removeSample(this)">Remove</span>';
+
+            // Update hidden input
+            if (!currentSamples.includes(sample.barcode)) {
+                currentSamples.push(sample.barcode);
             }
         });
+
+        samplesInput.value = currentSamples.join(',');
+    }
+
+    function removeSample(element) {
+        if (confirm('Are you sure you want to remove this sample from the run?')) {
+            const row = element.closest('tr');
+            const sampleId = row.dataset.sampleId;
+            
+            // Remove from hidden input
+            const samplesInput = document.getElementById('id_samples');
+            const currentSamples = samplesInput.value.split(',').filter(id => id !== sampleId);
+            samplesInput.value = currentSamples.join(',');
+            
+            // Remove row from table
+            row.remove();
+        }
+    }
+
+    // Initialize tooltips
+    django.jQuery(function($) {
+        $('.remove-sample').tooltip();
     });
 </script>
 {% endblock %} 

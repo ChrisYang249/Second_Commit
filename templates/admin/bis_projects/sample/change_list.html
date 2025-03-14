@@ -6,7 +6,58 @@
     <h1>{{ custom_header }}</h1>
   {% endif %}
 
-  {# Removed the per-page selector dropdown #}
+  {% if '_popup' in request.GET %}
+    <div class="actions">
+      <button id="select-samples" class="button" style="margin-bottom: 10px;">Add Selected Samples</button>
+    </div>
+  {% endif %}
 
   {{ block.super }}
+
+  {% if '_popup' in request.GET %}
+    <script>
+      (function($) {
+        // Add checkboxes to each row if in popup mode
+        $('#result_list tbody tr').each(function() {
+          var $row = $(this);
+          var barcode = $row.find('td:first').text().trim();
+          var sampleName = $row.find('td:nth-child(2)').text().trim();
+          var project = $row.find('td:nth-child(3)').text().trim();
+          var status = $row.find('td:nth-child(7)').text().trim();
+          
+          $row.find('td:first').prepend(
+            $('<input>').attr({
+              type: 'checkbox',
+              class: 'sample-select',
+              'data-barcode': barcode,
+              'data-name': sampleName,
+              'data-project': project,
+              'data-status': status
+            })
+          );
+        });
+
+        // Handle the select button click
+        $('#select-samples').click(function() {
+          var selectedSamples = [];
+          $('.sample-select:checked').each(function() {
+            var $checkbox = $(this);
+            selectedSamples.push({
+              barcode: $checkbox.data('barcode'),
+              name: $checkbox.data('name'),
+              project: $checkbox.data('project'),
+              status: $checkbox.data('status')
+            });
+          });
+
+          if (selectedSamples.length > 0) {
+            window.opener.handleSelectedSamples(selectedSamples);
+            window.close();
+          } else {
+            alert('Please select at least one sample.');
+          }
+        });
+      })(django.jQuery);
+    </script>
+  {% endif %}
 {% endblock %}
